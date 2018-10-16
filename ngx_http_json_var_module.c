@@ -39,8 +39,19 @@ static ngx_command_t ngx_http_json_var_commands[] = {
     ngx_null_command
 };
 
+static ngx_int_t ngx_http_json_headers_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_http_variable_t ngx_http_json_var_variables[] = {
+
+    { ngx_string("json_headers"), NULL,
+      ngx_http_json_headers_variable, 0,
+      NGX_HTTP_VAR_NOCACHEABLE|NGX_HTTP_VAR_CHANGEABLE, 0 },
+
+    { ngx_null_string, NULL, NULL, 0, 0, 0 }
+};
+
+static ngx_int_t ngx_http_json_var_add_variables(ngx_conf_t *cf);
 static ngx_http_module_t ngx_http_json_var_module_ctx = {
-    NULL,								/* preconfiguration */
+    ngx_http_json_var_add_variables,	/* preconfiguration */
     NULL,								/* postconfiguration */
 
     NULL,								/* create main configuration */
@@ -283,4 +294,91 @@ ngx_http_json_var_json_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 	}
 
 	return rv;
+}
+
+static ngx_int_t
+ngx_http_json_headers_variable(
+	ngx_http_request_t *r, 
+	ngx_http_variable_value_t *v,
+	uintptr_t data)
+{
+	ngx_uint_t i;
+	size_t size = sizeof("{}");
+	u_char* p;
+
+    ngx_list_part_t *part = &r->headers_in.headers.part;
+    ngx_table_elt_t *header = part->elts;
+    for (i = 0; ; ) {
+        size += sizeof("\"\":\"\",") + header[i].key.len + header[i].value.len + ngx_escape_json(NULL, header[i].value.data, header[i].value.len);
+        i++;
+        if (i >= part->nelts) {
+            if (part->next == NULL) {
+                break;
+            }
+            part = part->next;
+            header = part->elts;
+            i = 0;
+        }
+//        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "i=%d, lowcase_key=%s, key.data=%V, key.len=%i, value.data=%V, value.len=%i", i, header[i].lowcase_key, &header[i].key, header[i].key.len, &header[i].value, header[i].value.len);
+    }
+
+	p = ngx_palloc(r->pool, size);
+	if (p == NULL)
+	{
+		return NGX_ERROR;
+	}
+
+	v->data = p;
+
+	*p++ = '{';
+    part = &r->headers_in.headers.part;
+    header = part->elts;
+    for (i = 0; ; ) {
+		*p++ = '"';
+		p = ngx_copy(p, header[i].key.data, header[i].key.len);
+		*p++ = '"';
+		*p++ = ':';
+		*p++ = '"';
+			p = (u_char*)ngx_escape_json(p, header[i].value.data, header[i].value.len);
+		*p++ = '"';
+		i++;
+        if (i >= part->nelts) {
+            if (part->next == NULL) {
+                break;
+            }
+            part = part->next;
+            header = part->elts;
+            i = 0;
+        }
+		*p++ = ',';
+	}
+	*p++ = '}';
+	*p = '\0';
+
+	v->valid = 1;
+	v->no_cacheable = 0;
+	v->not_found = 0;
+	v->len = p - v->data;
+
+	if (v->len >= size)
+	{
+		ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+			"result length %uD exceeded allocated length %uz", (uint32_t)v->len, size);
+		return NGX_ERROR;
+	}
+
+	return NGX_OK;
+}
+
+static ngx_int_t ngx_http_json_var_add_variables(ngx_conf_t *cf) {
+    ngx_http_variable_t  *var, *v;
+    for (v = ngx_http_json_var_variables; v->name.len; v++) {
+        var = ngx_http_add_variable(cf, &v->name, v->flags);
+        if (var == NULL) {
+            return NGX_ERROR;
+        }
+        var->get_handler = v->get_handler;
+        var->data = v->data;
+    }
+    return NGX_OK;
 }
