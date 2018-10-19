@@ -40,12 +40,16 @@ static ngx_command_t ngx_http_json_var_commands[] = {
 };
 
 static ngx_int_t ngx_http_json_headers_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_json_cookies_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_http_json_get_vars_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t ngx_http_json_post_vars_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_http_variable_t ngx_http_json_var_variables[] = {
 
     { ngx_string("json_headers"), NULL,
       ngx_http_json_headers_variable, 0,
+      NGX_HTTP_VAR_NOCACHEABLE|NGX_HTTP_VAR_CHANGEABLE, 0 },
+    { ngx_string("json_cookies"), NULL,
+      ngx_http_json_cookies_variable, 0,
       NGX_HTTP_VAR_NOCACHEABLE|NGX_HTTP_VAR_CHANGEABLE, 0 },
     { ngx_string("json_get_vars"), NULL,
       ngx_http_json_get_vars_variable, 0,
@@ -184,6 +188,8 @@ ngx_http_json_var_variable(
         *p++ = ':';
         if (ngx_strncasecmp(fields[i].name.data, (u_char *)"json_headers", sizeof("json_headers") - 1) == 0) {
             p = ngx_copy(p, values[i].v.data, values[i].v.len);
+        } else if (ngx_strncasecmp(fields[i].name.data, (u_char *)"json_cookies", sizeof("json_cookies") - 1) == 0) {
+            p = ngx_copy(p, values[i].v.data, values[i].v.len);
         } else if (ngx_strncasecmp(fields[i].name.data, (u_char *)"json_get_vars", sizeof("json_get_vars") - 1) == 0) {
             p = ngx_copy(p, values[i].v.data, values[i].v.len);
         } else if (ngx_strncasecmp(fields[i].name.data, (u_char *)"json_post_vars", sizeof("json_post_vars") - 1) == 0) {
@@ -317,7 +323,6 @@ ngx_http_json_var_json_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 static ngx_int_t ngx_http_json_headers_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
     ngx_uint_t i;
     size_t size = sizeof("{}");
-    u_char* p;
     ngx_list_part_t *part = &r->headers_in.headers.part;
     ngx_table_elt_t *header = part->elts;
     for (i = 0; ; ) {
@@ -330,7 +335,7 @@ static ngx_int_t ngx_http_json_headers_variable(ngx_http_request_t *r, ngx_http_
             i = 0;
         }
     }
-    p = ngx_palloc(r->pool, size);
+    u_char *p = ngx_palloc(r->pool, size);
     if (p == NULL) return NGX_ERROR;
     v->data = p;
     *p++ = '{';
@@ -353,6 +358,74 @@ static ngx_int_t ngx_http_json_headers_variable(ngx_http_request_t *r, ngx_http_
         }
         *p++ = ',';
     }
+    *p++ = '}';
+    *p = '\0';
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    v->len = p - v->data;
+    if (v->len >= size) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "result length %uD exceeded allocated length %uz", (uint32_t)v->len, size);
+        return NGX_ERROR;
+    }
+    return NGX_OK;
+}
+
+static size_t ngx_http_json_cookies_size(size_t size, u_char *start, u_char *end) {
+    for (; start < end; start++, size++) {
+        if (*start == '\'' || *start == '"') size++;
+        else if (*start == ';') size += sizeof("\"\":\"\",") - 1;
+    }
+    return size;
+}
+
+static u_char *ngx_http_json_cookies_data(u_char *p, u_char *start, u_char *end, u_char *cookies_start) {
+    for (u_char *name = p ; start < end; ) {
+        while(*start == ' ' && start < end) ++start;
+        name = p;
+        if (p != cookies_start) *p++ = ',';
+        *p++ = '"';
+        while (*start != ';' && *start != '=' && start < end) {
+            if (*start == '\'') *p++ = '\'';
+            else if (*start == '"') *p++ = '\\';
+            *p++ = *start++;
+        }
+        if (*start == ';') {
+            p = name;
+            start++;
+        } else if (start >= end) {
+            p = name;
+        } else {
+            start++;
+            *p++ = '"';
+            *p++ = ':';
+            *p++ = '"';
+            while (*start == ' ' && start < end) ++start;
+            while (*start != ';' && *start != '=' && start < end) {
+                if (*start == '\'') *p++ = '\'';
+                else if (*start == '"') *p++ = '\\';
+                *p++ = *start++;
+            }
+            *p++ = '"';
+            start++;
+            if (*(name + (*name == ',' ? 1 : 0)) == '"' && *(name + (*name == ',' ? 2 : 1)) == '"') {
+                p = name;
+            }
+        }
+    }
+    return p;
+}
+
+static ngx_int_t ngx_http_json_cookies_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
+    ngx_uint_t i;
+    size_t size = sizeof("{}") + 1;
+    ngx_table_elt_t **h = r->headers_in.cookies.elts;
+    for (i = 0; i < r->headers_in.cookies.nelts; i++) size = ngx_http_json_cookies_size(size, h[i]->value.data, h[i]->value.data + h[i]->value.len);
+    u_char* p = ngx_palloc(r->pool, size);
+    if (p == NULL) return NGX_ERROR;
+    v->data = p;
+    *p++ = '{';
+    for (i = 0; i < r->headers_in.cookies.nelts; i++) p = ngx_http_json_cookies_data(p, h[i]->value.data, h[i]->value.data + h[i]->value.len, v->data + 1);
     *p++ = '}';
     *p = '\0';
     v->valid = 1;
@@ -438,17 +511,14 @@ static u_char *ngx_http_json_vars_data(u_char *p, u_char *start, u_char *end, u_
 }
 
 static ngx_buf_t *ngx_http_json_read_request_body_to_buffer(ngx_http_request_t *r) {
-    ngx_buf_t                              *buf = NULL;
-    ngx_chain_t                            *chain;
-    ssize_t                                 n;
-    off_t                                   len;
-
-    buf = ngx_create_temp_buf(r->pool, r->headers_in.content_length_n + 1);
+    ngx_buf_t *buf = ngx_create_temp_buf(r->pool, r->headers_in.content_length_n + 1);
     if (buf != NULL) {
         buf->memory = 1;
         buf->temporary = 0;
         ngx_memset(buf->start, '\0', r->headers_in.content_length_n + 1);
-        chain = r->request_body->bufs;
+        ngx_chain_t *chain = r->request_body->bufs;
+        ssize_t n;
+        off_t len;
         while ((chain != NULL) && (chain->buf != NULL)) {
             len = ngx_buf_size(chain->buf);
             // if buffer is equal to content length all the content is in this buffer
