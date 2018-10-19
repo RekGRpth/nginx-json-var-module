@@ -188,6 +188,8 @@ ngx_http_json_var_variable(
             p = ngx_copy(p, values[i].v.data, values[i].v.len);
         } else if (ngx_memcmp(fields[i].name.data, "json_post_vars", sizeof("json_post_vars") - 1) == 0) {
             p = ngx_copy(p, values[i].v.data, values[i].v.len);
+        } else if (ngx_memcmp(fields[i].name.data, "request_body", sizeof("request_body") - 1) == 0 && r->headers_in.content_type && ngx_memcmp(r->headers_in.content_type->value.data, "application/json", sizeof("application/json") - 1) == 0) {
+            p = ngx_copy(p, values[i].v.data, values[i].v.len);
         } else {
             *p++ = '"';
             if (values[i].escape)
@@ -504,7 +506,7 @@ static ngx_int_t ngx_http_json_post_vars_variable(ngx_http_request_t *r, ngx_htt
         if (buf != NULL) {
 //            ngx_str_t body = {.data = buf->pos, .len = ngx_buf_size(buf)};
 //            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "body = %V", &body);
-            if (ngx_memcmp(r->headers_in.content_type->value.data, "application/x-www-form-urlencoded", sizeof("application/x-www-form-urlencoded") - 1) == 0) {
+            if (r->headers_in.content_type && ngx_memcmp(r->headers_in.content_type->value.data, "application/x-www-form-urlencoded", sizeof("application/x-www-form-urlencoded") - 1) == 0) {
                 parse_body = 1;
             }
         }
