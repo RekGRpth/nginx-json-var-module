@@ -194,8 +194,8 @@ ngx_http_json_var_variable(
             p = ngx_copy(p, values[i].v.data, values[i].v.len);
         } else if (ngx_strncasecmp(fields[i].name.data, (u_char *)"json_post_vars", sizeof("json_post_vars") - 1) == 0) {
             p = ngx_copy(p, values[i].v.data, values[i].v.len);
-        } else if (ngx_strncasecmp(fields[i].name.data, (u_char *)"request_body", sizeof("request_body") - 1) == 0 && r->headers_in.content_type && ngx_strncasecmp(r->headers_in.content_type->value.data, (u_char *)"application/json", sizeof("application/json") - 1) == 0) {
-            p = ngx_copy(p, values[i].v.data, values[i].v.len);
+//        } else if (ngx_strncasecmp(fields[i].name.data, (u_char *)"request_body", sizeof("request_body") - 1) == 0 && r->headers_in.content_type && ngx_strncasecmp(r->headers_in.content_type->value.data, (u_char *)"application/json", sizeof("application/json") - 1) == 0) {
+//            p = ngx_copy(p, values[i].v.data, values[i].v.len);
         } else {
             *p++ = '"';
             if (values[i].escape)
@@ -576,19 +576,33 @@ static ngx_int_t ngx_http_json_post_vars_variable(ngx_http_request_t *r, ngx_htt
         if (buf != NULL) {
 //            ngx_str_t body = {.data = buf->pos, .len = ngx_buf_size(buf)};
 //            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "body = %V", &body);
-            if (r->headers_in.content_type && ngx_strncasecmp(r->headers_in.content_type->value.data, (u_char *)"application/x-www-form-urlencoded", sizeof("application/x-www-form-urlencoded") - 1) == 0) {
-                parse_body = 1;
+            if (r->headers_in.content_type) {
+                if (ngx_strncasecmp(r->headers_in.content_type->value.data, (u_char *)"application/x-www-form-urlencoded", sizeof("application/x-www-form-urlencoded") - 1) == 0) {
+                    parse_body = 1;
+                } else if (ngx_strncasecmp(r->headers_in.content_type->value.data, (u_char *)"application/json", sizeof("application/json") - 1) == 0) {
+                    parse_body = 2;
+                }
             }
         }
     }
     size_t size = sizeof("{}\"\":\"\"") - 1;
-    if (parse_body) size = ngx_http_json_vars_size(size, buf->pos, buf->last);
+    if (parse_body == 1) {
+        size = ngx_http_json_vars_size(size, buf->pos, buf->last);
+    } else if (parse_body == 2) {
+        size = buf->last - buf->pos + 1;
+    }
     u_char *p = ngx_palloc(r->pool, size);
     if (p == NULL) return NGX_ERROR;
     v->data = p;
-    *p++ = '{';
-    if (parse_body) p = ngx_http_json_vars_data(p, buf->pos, buf->last, v->data + 1);
-    *p++ = '}';
+    if (parse_body == 2) {
+        p = ngx_copy(p, buf->pos, buf->last - buf->pos);
+    } else {
+        *p++ = '{';
+        if (parse_body == 1) {
+            p = ngx_http_json_vars_data(p, buf->pos, buf->last, v->data + 1);
+        }
+        *p++ = '}';
+    }
     *p = '\0';
     v->valid = 1;
     v->no_cacheable = 0;
