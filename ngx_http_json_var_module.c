@@ -510,42 +510,6 @@ static u_char *ngx_http_json_vars_data(u_char *p, u_char *start, u_char *end, u_
     return p;
 }
 
-/*static ngx_buf_t *ngx_http_json_read_request_body_to_buffer(ngx_http_request_t *r) {
-    ngx_buf_t *buf = ngx_create_temp_buf(r->pool, r->headers_in.content_length_n + 1);
-    if (buf != NULL) {
-        buf->memory = 1;
-        buf->temporary = 0;
-        ngx_memset(buf->start, '\0', r->headers_in.content_length_n + 1);
-        ngx_chain_t *chain = r->request_body->bufs;
-        ssize_t n;
-        off_t len;
-        while ((chain != NULL) && (chain->buf != NULL)) {
-            len = ngx_buf_size(chain->buf);
-            // if buffer is equal to content length all the content is in this buffer
-            if (len >= r->headers_in.content_length_n) {
-                buf->start = buf->pos;
-                buf->last = buf->pos;
-                len = r->headers_in.content_length_n;
-            }
-            if (chain->buf->in_file) {
-                n = ngx_read_file(chain->buf->file, buf->start, len, 0);
-                if (n == NGX_FILE_ERROR) {
-                    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "cannot read file with request body");
-                    return NULL;
-                }
-                buf->last = buf->last + len;
-                ngx_delete_file(chain->buf->file->name.data);
-                chain->buf->file->fd = NGX_INVALID_FILE;
-            } else {
-                buf->last = ngx_copy(buf->start, chain->buf->pos, len);
-            }
-            chain = chain->next;
-            buf->start = buf->last;
-        }
-    }
-    return buf;
-}*/
-
 static ngx_int_t ngx_http_json_get_vars_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
     size_t size = sizeof("{}\"\":\"\"") - 1;
     size = ngx_http_json_vars_size(size, r->args.data, r->args.data + r->args.len);
@@ -572,23 +536,84 @@ static ngx_int_t ngx_http_json_post_vars_variable(ngx_http_request_t *r, ngx_htt
     char parse_body = 0;
     ngx_str_t echo_request_body_var = ngx_string("echo_request_body");
     ngx_http_variable_value_t *echo_request_body = ngx_http_get_variable(r, &echo_request_body_var, ngx_hash_key(echo_request_body_var.data, echo_request_body_var.len));
-//    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "echo_request_body = %p", echo_request_body);
-//    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "echo_request_body->data = %p", echo_request_body->data);
-    //ngx_buf_t *buf = NULL;
     if (echo_request_body->data != NULL) {
-//        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "echo_request_body->data = %s", echo_request_body->data);
-//        buf = ngx_http_json_read_request_body_to_buffer(r);
-//        if (buf != NULL) {
-//            ngx_str_t body = {.data = buf->pos, .len = ngx_buf_size(buf)};
-//            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "body = %V", &body);
-            if (r->headers_in.content_type) {
-                if (ngx_strncasecmp(r->headers_in.content_type->value.data, (u_char *)"application/x-www-form-urlencoded", sizeof("application/x-www-form-urlencoded") - 1) == 0) {
-                    parse_body = 1;
-                } else if (ngx_strncasecmp(r->headers_in.content_type->value.data, (u_char *)"application/json", sizeof("application/json") - 1) == 0) {
-                    parse_body = 2;
+        if (r->headers_in.content_type) {
+            if (ngx_strncasecmp(r->headers_in.content_type->value.data, (u_char *)"application/x-www-form-urlencoded", sizeof("application/x-www-form-urlencoded") - 1) == 0) {
+                parse_body = 1;
+            } else if (ngx_strncasecmp(r->headers_in.content_type->value.data, (u_char *)"application/json", sizeof("application/json") - 1) == 0) {
+                parse_body = 2;
+            } else if (ngx_strncasecmp(r->headers_in.content_type->value.data, (u_char *)"multipart/form-data", sizeof("multipart/form-data") - 1) == 0) {
+                u_char *mime_type_end_ptr = (u_char*) ngx_strchr(r->headers_in.content_type->value.data, ';');
+                if (mime_type_end_ptr == NULL) {
+                    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "mime_type_end_ptr == NULL");
+                } else {
+                    u_char *boundary_start_ptr = ngx_strstrn(mime_type_end_ptr, "boundary=", sizeof("boundary=") - 1 - 1);
+                    if (boundary_start_ptr == NULL) {
+                        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "boundary_start_ptr == NULL");
+                    } else {
+                        boundary_start_ptr += sizeof("boundary=") - 1;
+                        u_char *boundary_end_ptr = boundary_start_ptr + strcspn((char *)boundary_start_ptr, " ;\n\r");
+                        if (boundary_end_ptr == boundary_start_ptr) {
+                            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "boundary_end_ptr == boundary_start_ptr");
+                        } else {
+                            ngx_str_t boundary = {.len = boundary_end_ptr - boundary_start_ptr + 4, .data = ngx_palloc(r->pool, boundary_end_ptr - boundary_start_ptr + 4 + 1)};
+                            if (boundary.data == NULL) {
+                                ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "boundary.data == NULL");
+                            } else {
+                                (void) ngx_cpystrn(boundary.data + 4, boundary_start_ptr, boundary_end_ptr - boundary_start_ptr + 1);
+                                boundary.data[0] = '\r'; 
+                                boundary.data[1] = '\n'; 
+                                boundary.data[2] = '-'; 
+                                boundary.data[3] = '-'; 
+                                boundary.data[boundary.len] = '\0';
+//                                ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "boundary = %V", &boundary);
+                                u_char *d = echo_request_body->data;
+//                                u_char *s = d;
+//                                u_char *name_start_ptr;
+                                for (
+                                    u_char *s = d, *name_start_ptr;
+                                    (name_start_ptr = ngx_strstrn(s, "\r\nContent-Disposition: form-data; name=\"", sizeof("\r\nContent-Disposition: form-data; name=\"") - 1 - 1)) != NULL;
+                                    s += boundary.len
+                                ) {
+//                                if (name_start_ptr == NULL) {
+//                                    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "name_start_ptr == NULL");
+//                                } else {
+                                    name_start_ptr += sizeof("\r\nContent-Disposition: form-data; name=\"") - 1;                                    
+                                    u_char *name_end_ptr = ngx_strstrn(name_start_ptr, "\"\r\n\r\n", sizeof("\"\r\n\r\n") - 1 - 1);
+                                    if (name_end_ptr == NULL) {
+                                        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "name_end_ptr == NULL");
+                                    } else {
+//                                        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "name_start_ptr = %s", name_start_ptr);
+//                                        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "name_end_ptr = %s", name_end_ptr);                                        
+                                        if (d != echo_request_body->data) *d++ = '&';
+                                        for (s = name_start_ptr; s < name_end_ptr; *d++ = *s++);
+                                        *d++ = '=';
+                                        u_char *value_start_ptr = name_end_ptr + sizeof("\"\r\n\r\n") - 1;
+                                        u_char *value_end_ptr = ngx_strstrn(value_start_ptr, (char *)boundary.data, boundary.len - 1);
+                                        if (value_end_ptr == NULL) {
+                                            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "value_end_ptr == NULL");
+                                        } else {
+//                                            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "value_start_ptr = %s", value_start_ptr);
+//                                            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "value_end_ptr = %s", value_end_ptr);
+                                            for (s = value_start_ptr; s < value_end_ptr; *d++ = *s++);
+//                                            *d++ = '&';
+//                                            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "echo_request_body->data = %s", echo_request_body->data);
+//                                            s += boundary.len;
+//                                            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "s = %s", s);
+//                                          parse_body = 3;
+                                        }
+                                    }
+                                }
+                                *d++ = '\0';
+                                echo_request_body->len = d - echo_request_body->data - 1;
+                                //ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "echo_request_body->data = %s", echo_request_body->data);
+                                parse_body = 1;
+                            }
+                        }
+                    }
                 }
             }
-//        }
+        }
     }
     size_t size = sizeof("{}\"\":\"\"") - 1;
     if (parse_body == 1) {
