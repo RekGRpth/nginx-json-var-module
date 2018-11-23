@@ -373,7 +373,7 @@ static ngx_int_t ngx_http_json_headers_variable(ngx_http_request_t *r, ngx_http_
 
 static size_t ngx_http_json_cookies_size(size_t size, u_char *start, u_char *end) {
     for (; start < end; start++, size++) {
-        if (*start == '\'' || *start == '"') size++;
+        if (*start == '\\' || *start == '"') size++;
         else if (*start == ';') size += sizeof("\"\":\"\",") - 1;
     }
     return size;
@@ -386,7 +386,7 @@ static u_char *ngx_http_json_cookies_data(u_char *p, u_char *start, u_char *end,
         if (p != cookies_start) *p++ = ',';
         *p++ = '"';
         while (*start != ';' && *start != '=' && start < end) {
-            if (*start == '\'') *p++ = '\'';
+            if (*start == '\\') *p++ = '\\';
             else if (*start == '"') *p++ = '\\';
             *p++ = *start++;
         }
@@ -402,7 +402,7 @@ static u_char *ngx_http_json_cookies_data(u_char *p, u_char *start, u_char *end,
             *p++ = '"';
             while (*start == ' ' && start < end) ++start;
             while (*start != ';' && *start != '=' && start < end) {
-                if (*start == '\'') *p++ = '\'';
+                if (*start == '\\') *p++ = '\\';
                 else if (*start == '"') *p++ = '\\';
                 *p++ = *start++;
             }
@@ -441,7 +441,7 @@ static ngx_int_t ngx_http_json_cookies_variable(ngx_http_request_t *r, ngx_http_
 
 static size_t ngx_http_json_vars_size(size_t size, u_char *start, u_char *end) {
     for (; start < end; start++, size++) {
-        if (*start == '\'' || *start == '"') size++;
+        if (*start == '\\' || *start == '"') size++;
         else if (*start == '&') size += sizeof("\"\":\"\",");// - 3;
     }
     return size;
@@ -468,7 +468,7 @@ static u_char *ngx_http_json_vars_data(u_char *p, u_char *start, u_char *end, u_
                 start++;
                 c = ' ';
             } else c = *start++;
-            if (c == '\'') *p++ = '\'';
+            if (c == '\\') *p++ = '\\';
             else if (c == '"') *p++ = '\\';
             *p++ = c;
         }
@@ -494,7 +494,7 @@ static u_char *ngx_http_json_vars_data(u_char *p, u_char *start, u_char *end, u_
                         start++;
                         c = ' ';
                     } else c = *start++;
-                    if (c == '\'') *p++ = '\'';
+                    if (c == '\\') *p++ = '\\';
                     else if (c == '"') *p++ = '\\';
                     *p++ = c;
                 }
