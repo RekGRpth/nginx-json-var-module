@@ -19,7 +19,7 @@ typedef struct {
 } ngx_http_json_var_ctx_t;
 
 typedef struct {
-    ngx_http_json_var_ctx_t* ctx;
+    ngx_http_json_var_ctx_t *ctx;
     ngx_conf_t *cf;
 } ngx_http_json_var_conf_ctx_t;
 
@@ -203,7 +203,7 @@ static char *ngx_http_json_var_json_block(ngx_conf_t *cf, ngx_command_t *cmd, vo
         return NGX_CONF_ERROR;
     }
     ctx->base_json_size = sizeof("{}");
-    ngx_http_json_var_field_t* fields = ctx->fields.elts;
+    ngx_http_json_var_field_t *fields = ctx->fields.elts;
     for (ngx_uint_t i = 0; i < ctx->fields.nelts; i++) ctx->base_json_size += sizeof("\"\":\"\",") + fields[i].name.len;
     return rv;
 }
@@ -307,7 +307,7 @@ static ngx_int_t ngx_http_json_cookies_variable(ngx_http_request_t *r, ngx_http_
     size_t size = sizeof("{}") + 1;
     ngx_table_elt_t **h = r->headers_in.cookies.elts;
     for (ngx_uint_t i = 0; i < r->headers_in.cookies.nelts; i++) size = ngx_http_json_cookies_size(size, h[i]->value.data, h[i]->value.data + h[i]->value.len);
-    u_char* p = ngx_palloc(r->pool, size);
+    u_char *p = ngx_palloc(r->pool, size);
     if (p == NULL) return NGX_ERROR;
     v->data = p;
     *p++ = '{';
