@@ -22,17 +22,17 @@ typedef struct {
     ngx_conf_t *cf;
 } ngx_http_json_var_conf_ctx_t;
 
-static char *ngx_http_json_var_json_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
-static ngx_int_t ngx_http_json_cookies_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
-static ngx_int_t ngx_http_json_get_vars_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
-static ngx_int_t ngx_http_json_headers_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
-static ngx_int_t ngx_http_json_post_vars_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+static char *ngx_http_json_var_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static ngx_int_t ngx_http_json_var_add_variables(ngx_conf_t *cf);
+static ngx_int_t ngx_http_json_var_cookies(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_json_var_get_vars(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_json_var_headers(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_json_var_post_vars(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
 
 static ngx_command_t ngx_http_json_var_commands[] = {{
     ngx_string("json_var"),
     NGX_HTTP_MAIN_CONF | NGX_CONF_BLOCK | NGX_CONF_TAKE1,
-    ngx_http_json_var_json_block,
+    ngx_http_json_var_conf,
     0,
     0,
     NULL
@@ -41,28 +41,28 @@ static ngx_command_t ngx_http_json_var_commands[] = {{
 static ngx_http_variable_t ngx_http_json_var_variables[] = {{
     ngx_string("json_headers"),
     NULL,
-    ngx_http_json_headers_variable,
+    ngx_http_json_var_headers,
     0,
     NGX_HTTP_VAR_NOCACHEABLE|NGX_HTTP_VAR_CHANGEABLE,
     0
 }, {
     ngx_string("json_cookies"),
     NULL,
-    ngx_http_json_cookies_variable,
+    ngx_http_json_var_cookies,
     0,
     NGX_HTTP_VAR_NOCACHEABLE|NGX_HTTP_VAR_CHANGEABLE,
     0
 }, {
     ngx_string("json_get_vars"),
     NULL,
-    ngx_http_json_get_vars_variable,
+    ngx_http_json_var_get_vars,
     0,
     NGX_HTTP_VAR_NOCACHEABLE|NGX_HTTP_VAR_CHANGEABLE,
     0
 }, {
     ngx_string("json_post_vars"),
     NULL,
-    ngx_http_json_post_vars_variable,
+    ngx_http_json_var_post_vars,
     0,
     NGX_HTTP_VAR_NOCACHEABLE|NGX_HTTP_VAR_CHANGEABLE,
     0
@@ -101,7 +101,7 @@ ngx_module_t ngx_http_json_var_module = {
     NGX_MODULE_V1_PADDING
 };
 
-static char *ngx_http_json_var_json(ngx_conf_t *cf, ngx_command_t *dummy, void *conf) {
+static char *ngx_http_json_var_handler(ngx_conf_t *cf, ngx_command_t *dummy, void *conf) {
     if (cf->args->nelts != 2) {
         ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "invalid number of parameters");
         return NGX_CONF_ERROR;
@@ -171,7 +171,7 @@ static ngx_int_t ngx_http_json_var_variable(ngx_http_request_t *r, ngx_http_vari
     return NGX_OK;
 }
 
-static char *ngx_http_json_var_json_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
+static char *ngx_http_json_var_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
     ngx_str_t *value = cf->args->elts;
     ngx_str_t name = value[1];
     if (name.data[0] != '$') {
@@ -191,7 +191,7 @@ static char *ngx_http_json_var_json_block(ngx_conf_t *cf, ngx_command_t *cmd, vo
     ngx_http_json_var_conf_ctx_t conf_ctx = {.cf = &save, .ctx = ctx};
     save = *cf;
     cf->ctx = &conf_ctx;
-    cf->handler = ngx_http_json_var_json;
+    cf->handler = ngx_http_json_var_handler;
     char *rv = ngx_conf_parse(cf, NULL);
     *cf = save;
     if (rv != NGX_CONF_OK) return rv;
@@ -205,7 +205,7 @@ static char *ngx_http_json_var_json_block(ngx_conf_t *cf, ngx_command_t *cmd, vo
     return rv;
 }
 
-static ngx_int_t ngx_http_json_headers_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
+static ngx_int_t ngx_http_json_var_headers(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
     size_t size = sizeof("{}");
     ngx_list_part_t *part = &r->headers_in.headers.part;
     ngx_table_elt_t *header = part->elts;
@@ -255,7 +255,7 @@ static ngx_int_t ngx_http_json_headers_variable(ngx_http_request_t *r, ngx_http_
     return NGX_OK;
 }
 
-static size_t ngx_http_json_cookies_size(size_t size, u_char *start, u_char *end) {
+static size_t ngx_http_json_var_cookies_size(size_t size, u_char *start, u_char *end) {
     for (; start < end; start++, size++) {
         if (*start == '\\' || *start == '"') size++;
         else if (*start == ';') size += sizeof("\"\":\"\",") - 1;
@@ -263,7 +263,7 @@ static size_t ngx_http_json_cookies_size(size_t size, u_char *start, u_char *end
     return size;
 }
 
-static u_char *ngx_http_json_cookies_data(u_char *p, u_char *start, u_char *end, u_char *cookies_start) {
+static u_char *ngx_http_json_var_cookies_data(u_char *p, u_char *start, u_char *end, u_char *cookies_start) {
     for (u_char *name = p; start < end; ) {
         while(*start == ' ' && start < end) ++start;
         name = p;
@@ -300,15 +300,15 @@ static u_char *ngx_http_json_cookies_data(u_char *p, u_char *start, u_char *end,
     return p;
 }
 
-static ngx_int_t ngx_http_json_cookies_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
+static ngx_int_t ngx_http_json_var_cookies(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
     size_t size = sizeof("{}") + 1;
     ngx_table_elt_t **h = r->headers_in.cookies.elts;
-    for (ngx_uint_t i = 0; i < r->headers_in.cookies.nelts; i++) size = ngx_http_json_cookies_size(size, h[i]->value.data, h[i]->value.data + h[i]->value.len);
+    for (ngx_uint_t i = 0; i < r->headers_in.cookies.nelts; i++) size = ngx_http_json_var_cookies_size(size, h[i]->value.data, h[i]->value.data + h[i]->value.len);
     u_char *p = ngx_palloc(r->pool, size);
     if (p == NULL) return NGX_ERROR;
     v->data = p;
     *p++ = '{';
-    for (ngx_uint_t i = 0; i < r->headers_in.cookies.nelts; i++) p = ngx_http_json_cookies_data(p, h[i]->value.data, h[i]->value.data + h[i]->value.len, v->data + 1);
+    for (ngx_uint_t i = 0; i < r->headers_in.cookies.nelts; i++) p = ngx_http_json_var_cookies_data(p, h[i]->value.data, h[i]->value.data + h[i]->value.len, v->data + 1);
     *p++ = '}';
     *p = '\0';
     v->valid = 1;
@@ -393,7 +393,7 @@ static u_char *ngx_http_json_vars_data(u_char *p, u_char *start, u_char *end, u_
     return p;
 }
 
-static ngx_int_t ngx_http_json_get_vars_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
+static ngx_int_t ngx_http_json_var_get_vars(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
     size_t size = sizeof("{}\"\":\"\"") - 1;
     size = ngx_http_json_vars_size(size, r->args.data, r->args.data + r->args.len);
     u_char *p = ngx_palloc(r->pool, size);
@@ -414,7 +414,7 @@ static ngx_int_t ngx_http_json_get_vars_variable(ngx_http_request_t *r, ngx_http
     return NGX_OK;
 }
 
-static ngx_int_t ngx_http_json_post_vars_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
+static ngx_int_t ngx_http_json_var_post_vars(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
     char parse_body = 0;
     ngx_str_t echo_request_body_var = ngx_string("echo_request_body");
     ngx_http_variable_value_t *echo_request_body = ngx_http_get_variable(r, &echo_request_body_var, ngx_hash_key(echo_request_body_var.data, echo_request_body_var.len));
