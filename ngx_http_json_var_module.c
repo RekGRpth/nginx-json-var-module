@@ -2,7 +2,6 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
 
-// typedefs
 typedef struct {
     ngx_str_t name;
     ngx_http_complex_value_t cv;
@@ -23,10 +22,13 @@ typedef struct {
     ngx_conf_t *cf;
 } ngx_http_json_var_conf_ctx_t;
 
-// forward decls
 static char *ngx_http_json_var_json_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static ngx_int_t ngx_http_json_cookies_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_json_get_vars_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_json_headers_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_json_post_vars_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_json_var_add_variables(ngx_conf_t *cf);
 
-// globals
 static ngx_command_t ngx_http_json_var_commands[] = {{
     ngx_string("json_var"),
     NGX_HTTP_MAIN_CONF | NGX_CONF_BLOCK | NGX_CONF_TAKE1,
@@ -36,10 +38,6 @@ static ngx_command_t ngx_http_json_var_commands[] = {{
     NULL
 }, ngx_null_command};
 
-static ngx_int_t ngx_http_json_headers_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
-static ngx_int_t ngx_http_json_cookies_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
-static ngx_int_t ngx_http_json_get_vars_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
-static ngx_int_t ngx_http_json_post_vars_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_http_variable_t ngx_http_json_var_variables[] = {{
     ngx_string("json_headers"),
     NULL,
@@ -77,7 +75,6 @@ static ngx_http_variable_t ngx_http_json_var_variables[] = {{
     0
 }};
 
-static ngx_int_t ngx_http_json_var_add_variables(ngx_conf_t *cf);
 static ngx_http_module_t ngx_http_json_var_module_ctx = {
     ngx_http_json_var_add_variables,     /* preconfiguration */
     NULL,                                /* postconfiguration */
