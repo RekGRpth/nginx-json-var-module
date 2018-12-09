@@ -135,7 +135,7 @@ static ngx_int_t ngx_http_json_var_variable(ngx_http_request_t *r, ngx_http_vari
     if (p == NULL) return NGX_ERROR;
     v->data = p;
     *p++ = '{';
-    for (ngx_uint_t i = 0; i < ctx->fields.nelts; i++) {
+    for (ngx_uint_t i = 0; i < ctx->fields.nelts; ) {
         *p++ = '"';
         p = ngx_copy(p, fields[i].name.data, fields[i].name.len);
         *p++ = '"';
@@ -154,8 +154,8 @@ static ngx_int_t ngx_http_json_var_variable(ngx_http_request_t *r, ngx_http_vari
             else p = ngx_copy(p, values[i].v.data, values[i].v.len);
             *p++ = '"';
         }
-//        i++;
-//        if (i >= ctx->fields.nelts) break;
+        i++;
+        if (i >= ctx->fields.nelts) break;
         *p++ = ',';
     }
     *p++ = '}';
