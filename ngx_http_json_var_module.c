@@ -172,7 +172,7 @@ static ngx_int_t ngx_http_json_var_variable(ngx_http_request_t *r, ngx_http_vari
     v->not_found = 0;
     v->len = p - v->data;
     if (v->len >= size) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "result length %uD exceeded allocated length %uz", (uint32_t)v->len, size);
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_json_var_variable: result length %uD exceeded allocated length %uz", (uint32_t)v->len, size);
         return NGX_ERROR;
     }
     return NGX_OK;
@@ -256,7 +256,7 @@ static ngx_int_t ngx_http_json_var_headers(ngx_http_request_t *r, ngx_http_varia
     v->not_found = 0;
     v->len = p - v->data;
     if (v->len >= size) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "result length %uD exceeded allocated length %uz", (uint32_t)v->len, size);
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_json_var_headers: result length %uD exceeded allocated length %uz", (uint32_t)v->len, size);
         return NGX_ERROR;
     }
     return NGX_OK;
@@ -308,7 +308,7 @@ static u_char *ngx_http_json_var_cookies_data(u_char *p, u_char *start, u_char *
 }
 
 static ngx_int_t ngx_http_json_var_cookies(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
-    size_t size = sizeof("{}") + 1;
+    size_t size = sizeof("{}\"\":\"\"") - 1;
     ngx_table_elt_t **h = r->headers_in.cookies.elts;
     for (ngx_uint_t i = 0; i < r->headers_in.cookies.nelts; i++) size = ngx_http_json_var_cookies_size(size, h[i]->value.data, h[i]->value.data + h[i]->value.len);
     u_char *p = ngx_palloc(r->pool, size);
@@ -323,7 +323,7 @@ static ngx_int_t ngx_http_json_var_cookies(ngx_http_request_t *r, ngx_http_varia
     v->not_found = 0;
     v->len = p - v->data;
     if (v->len >= size) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "result length %uD exceeded allocated length %uz", (uint32_t)v->len, size);
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_json_var_cookies: result length %uD exceeded allocated length %uz", (uint32_t)v->len, size);
         return NGX_ERROR;
     }
     return NGX_OK;
@@ -415,7 +415,7 @@ static ngx_int_t ngx_http_json_var_get_vars(ngx_http_request_t *r, ngx_http_vari
     v->not_found = 0;
     v->len = p - v->data;
     if (v->len >= size) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "result length %uD exceeded allocated length %uz", (uint32_t)v->len, size);
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_json_var_get_vars: result length %uD exceeded allocated length %uz", (uint32_t)v->len, size);
         return NGX_ERROR;
     }
     return NGX_OK;
@@ -492,7 +492,7 @@ static ngx_int_t ngx_http_json_var_post_vars(ngx_http_request_t *r, ngx_http_var
             *p = '\0';
             v->len = p - v->data;
             if (v->len >= size) {
-                ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "result length %uD exceeded allocated length %uz", (uint32_t)v->len, size);
+                ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_json_var_post_vars: result length %uD exceeded allocated length %uz", (uint32_t)v->len, size);
                 return NGX_ERROR;
             }
         } break;
