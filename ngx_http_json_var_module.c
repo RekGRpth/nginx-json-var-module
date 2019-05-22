@@ -482,7 +482,7 @@ static ngx_int_t ngx_http_json_var_post_vars(ngx_http_request_t *r, ngx_http_var
             v->len = p - v->data;
         } break;
         case CONTENT_TYPE_URLENCODED: {
-            size_t size = ngx_http_json_vars_size(sizeof("{}\"\":\"\"") - 1, echo_request_body->data, echo_request_body->data + echo_request_body->len);
+            size_t size = ngx_http_json_vars_size(sizeof("{}\"\":\"\"") + 2, echo_request_body->data, echo_request_body->data + echo_request_body->len);
             u_char *p = ngx_palloc(r->pool, size);
             if (p == NULL) return NGX_ERROR;
             v->data = p;
