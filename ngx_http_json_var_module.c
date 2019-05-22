@@ -401,7 +401,7 @@ static u_char *ngx_http_json_vars_data(u_char *p, u_char *start, u_char *end, u_
 }
 
 static ngx_int_t ngx_http_json_var_get_vars(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
-    size_t size = sizeof("{}\"\":\"\"") - 1;
+    size_t size = sizeof("{}\"\":\"\"") + 2;
     size = ngx_http_json_vars_size(size, r->args.data, r->args.data + r->args.len);
     u_char *p = ngx_palloc(r->pool, size);
     if (p == NULL) return NGX_ERROR;
