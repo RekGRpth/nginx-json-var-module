@@ -516,8 +516,7 @@ static ngx_int_t ngx_http_json_var_add_variables(ngx_conf_t *cf) {
     for (ngx_http_variable_t *v = ngx_http_json_var_variables; v->name.len; v++) {
         ngx_http_variable_t *var = ngx_http_add_variable(cf, &v->name, v->flags);
         if (var == NULL) return NGX_ERROR;
-        var->get_handler = v->get_handler;
-        var->data = v->data;
+        *var = *v;
     }
     return NGX_OK;
 }
