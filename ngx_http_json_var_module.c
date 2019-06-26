@@ -404,7 +404,7 @@ static ngx_int_t ngx_http_json_var_http_handler(ngx_http_request_t *r, ngx_http_
     return NGX_OK;
 }
 
-static char *ngx_http_json_var_conf_handler(ngx_conf_t *cf, ngx_command_t *dummy, void *conf) {
+static char *ngx_http_json_var_conf_handler(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
     ngx_http_json_var_conf_ctx_t *conf_ctx = cf->ctx;
     ngx_http_json_var_field_t *item = ngx_array_push(&conf_ctx->ctx->fields);
     if (!item) return NGX_CONF_ERROR;
