@@ -63,15 +63,11 @@ static ngx_int_t ngx_http_json_var_variable(ngx_http_request_t *r, ngx_http_vari
         p = ngx_copy(p, fields[i].name.data, fields[i].name.len);
         *p++ = '"';
         *p++ = ':';
-        if (ngx_strncasecmp(fields[i].name.data, (u_char *)"json_headers", sizeof("json_headers") - 1) == 0) {
-            p = ngx_copy(p, values[i].v.data, values[i].v.len);
-        } else if (ngx_strncasecmp(fields[i].name.data, (u_char *)"json_cookies", sizeof("json_cookies") - 1) == 0) {
-            p = ngx_copy(p, values[i].v.data, values[i].v.len);
-        } else if (ngx_strncasecmp(fields[i].name.data, (u_char *)"json_get_vars", sizeof("json_get_vars") - 1) == 0) {
-            p = ngx_copy(p, values[i].v.data, values[i].v.len);
-        } else if (ngx_strncasecmp(fields[i].name.data, (u_char *)"json_post_vars", sizeof("json_post_vars") - 1) == 0) {
-            p = ngx_copy(p, values[i].v.data, values[i].v.len);
-        } else {
+        if ((ngx_strncasecmp(fields[i].name.data, (u_char *)"json_headers", sizeof("json_headers") - 1) == 0)
+         || (ngx_strncasecmp(fields[i].name.data, (u_char *)"json_cookies", sizeof("json_cookies") - 1) == 0)
+         || (ngx_strncasecmp(fields[i].name.data, (u_char *)"json_get_vars", sizeof("json_get_vars") - 1) == 0)
+         || (ngx_strncasecmp(fields[i].name.data, (u_char *)"json_post_vars", sizeof("json_post_vars") - 1) == 0)
+        ) p = ngx_copy(p, values[i].v.data, values[i].v.len); else {
             *p++ = '"';
             if (values[i].escape) p = (u_char *)ngx_escape_json(p, values[i].v.data, values[i].v.len);
             else p = ngx_copy(p, values[i].v.data, values[i].v.len);
@@ -84,10 +80,7 @@ static ngx_int_t ngx_http_json_var_variable(ngx_http_request_t *r, ngx_http_vari
     v->no_cacheable = 0;
     v->not_found = 0;
     v->len = p - v->data;
-    if (v->len >= size) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_json_var_variable: result length %uD exceeded allocated length %uz", (uint32_t)v->len, size);
-        return NGX_ERROR;
-    }
+    if (v->len >= size) { ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_json_var_variable: result length %uD exceeded allocated length %uz", (uint32_t)v->len, size); return NGX_ERROR; }
     return NGX_OK;
 }
 
