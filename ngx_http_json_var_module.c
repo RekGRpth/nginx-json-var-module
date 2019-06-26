@@ -395,11 +395,11 @@ static ngx_int_t ngx_http_json_var_http_handler(ngx_http_request_t *r, ngx_http_
 }
 
 static char *ngx_http_json_var_conf_handler(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
-    ngx_http_json_var_ctx_t *conf_ctx = cf->ctx;
-    ngx_http_json_var_field_t *item = ngx_array_push(conf_ctx->ctx);
+    ngx_http_json_var_ctx_t *ctx = cf->ctx;
+    ngx_http_json_var_field_t *item = ngx_array_push(ctx->ctx);
     if (!item) return NGX_CONF_ERROR;
     ngx_str_t *value = cf->args->elts;
-    ngx_http_compile_complex_value_t ccv = {conf_ctx->cf, &value[1], &item->cv, 0, 0, 0};
+    ngx_http_compile_complex_value_t ccv = {ctx->cf, &value[1], &item->cv, 0, 0, 0};
     if (ngx_http_compile_complex_value(&ccv) != NGX_OK) return NGX_CONF_ERROR;
     item->name = value[0];
     return NGX_CONF_OK;
@@ -411,20 +411,20 @@ static char *ngx_http_json_var_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *co
     if (name.data[0] != '$') { ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "invalid variable name \"%V\"", &name); return NGX_CONF_ERROR; }
     name.len--;
     name.data++;
-    ngx_array_t *ctx = ngx_array_create(cf->pool, 4, sizeof(ngx_http_json_var_field_t));
-    if (!ctx) return NGX_CONF_ERROR;
+    ngx_array_t *fields = ngx_array_create(cf->pool, 4, sizeof(ngx_http_json_var_field_t));
+    if (!fields) return NGX_CONF_ERROR;
     ngx_http_variable_t *var = ngx_http_add_variable(cf, &name, NGX_HTTP_VAR_CHANGEABLE | NGX_HTTP_VAR_NOCACHEABLE);
     if (!var) return NGX_CONF_ERROR;
     var->get_handler = ngx_http_json_var_http_handler;
-    var->data = (uintptr_t)ctx;
+    var->data = (uintptr_t)fields;
     ngx_conf_t save = *cf;
-    ngx_http_json_var_ctx_t conf_ctx = {&save, ctx};
-    cf->ctx = &conf_ctx;
+    ngx_http_json_var_ctx_t ctx = {&save, fields};
+    cf->ctx = &ctx;
     cf->handler = ngx_http_json_var_conf_handler;
     char *rv = ngx_conf_parse(cf, NULL);
     *cf = save;
     if (rv != NGX_CONF_OK) return rv;
-    if (ctx->nelts <= 0) { ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "no fields defined in \"json_var\" block"); return NGX_CONF_ERROR; }
+    if (fields->nelts <= 0) { ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "no fields defined in \"json_var\" block"); return NGX_CONF_ERROR; }
     return rv;
 }
 
