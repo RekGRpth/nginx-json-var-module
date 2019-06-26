@@ -23,7 +23,6 @@ typedef struct {
 
 typedef struct {
     ngx_array_t fields; // of ngx_http_json_var_field_t
-    size_t base_json_size;
 } ngx_http_json_var_ctx_t;
 
 typedef struct {
@@ -367,11 +366,11 @@ static ngx_int_t ngx_http_json_var_http_handler(ngx_http_request_t *r, ngx_http_
     ngx_http_json_var_value_t *values = ngx_palloc(r->pool, sizeof(values[0]) * ctx->fields.nelts);
     if (!values) return NGX_ERROR;
     ngx_http_json_var_field_t *fields = ctx->fields.elts;
-    size_t size = ctx->base_json_size;
+    size_t size = sizeof("{}");
     for (ngx_uint_t i = 0; i < ctx->fields.nelts; i++) {
         if (ngx_http_complex_value(r, &fields[i].cv, &values[i].v) != NGX_OK) return NGX_ERROR;
         values[i].escape = ngx_escape_json(NULL, values[i].v.data, values[i].v.len);
-        size += values[i].v.len + values[i].escape;
+        size += sizeof("\"\":\"\",") + fields[i].name.len + values[i].v.len + values[i].escape;
     }
     u_char *p = ngx_palloc(r->pool, size);
     if (!p) return NGX_ERROR;
@@ -436,9 +435,6 @@ static char *ngx_http_json_var_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *co
     *cf = save;
     if (rv != NGX_CONF_OK) return rv;
     if (ctx->fields.nelts <= 0) { ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "no fields defined in \"json_var\" block"); return NGX_CONF_ERROR; }
-    ctx->base_json_size = sizeof("{}");
-    ngx_http_json_var_field_t *fields = ctx->fields.elts;
-    for (ngx_uint_t i = 0; i < ctx->fields.nelts; i++) ctx->base_json_size += sizeof("\"\":\"\",") + fields[i].name.len;
     return rv;
 }
 
