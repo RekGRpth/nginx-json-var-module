@@ -29,7 +29,7 @@ typedef struct {
 typedef struct {
     ngx_http_json_var_ctx_t *ctx;
     ngx_conf_t *cf;
-} ngx_conf_json_var_ctx_t;
+} ngx_json_var_conf_ctx_t;
 
 static ngx_int_t ngx_http_json_var_headers(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
     size_t size = sizeof("{}");
@@ -362,7 +362,7 @@ static ngx_int_t ngx_http_json_var_add_variables(ngx_conf_t *cf) {
     return NGX_OK;
 }
 
-static ngx_int_t ngx_http_json_var_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
+static ngx_int_t ngx_json_var_http_handler(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
     ngx_http_json_var_ctx_t *ctx = (ngx_http_json_var_ctx_t *)data;
     ngx_http_json_var_value_t *values = ngx_palloc(r->pool, sizeof(values[0]) * ctx->fields.nelts);
     if (!values) return NGX_ERROR;
@@ -404,8 +404,8 @@ static ngx_int_t ngx_http_json_var_variable(ngx_http_request_t *r, ngx_http_vari
     return NGX_OK;
 }
 
-static char *ngx_http_json_var(ngx_conf_t *cf, ngx_command_t *dummy, void *conf) {
-    ngx_conf_json_var_ctx_t *conf_ctx = cf->ctx;
+static char *ngx_json_var_conf_handler(ngx_conf_t *cf, ngx_command_t *dummy, void *conf) {
+    ngx_json_var_conf_ctx_t *conf_ctx = cf->ctx;
     ngx_http_json_var_field_t *item = ngx_array_push(&conf_ctx->ctx->fields);
     if (!item) return NGX_CONF_ERROR;
     ngx_str_t *value = cf->args->elts;
@@ -415,7 +415,7 @@ static char *ngx_http_json_var(ngx_conf_t *cf, ngx_command_t *dummy, void *conf)
     return NGX_CONF_OK;
 }
 
-static char *ngx_conf_json_var(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
+static char *ngx_json_var_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
     ngx_str_t *value = cf->args->elts;
     ngx_str_t name = value[1];
     if (name.data[0] != '$') { ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "invalid variable name \"%V\"", &name); return NGX_CONF_ERROR; }
@@ -426,12 +426,12 @@ static char *ngx_conf_json_var(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
     if (ngx_array_init(&ctx->fields, cf->pool, 10, sizeof(ngx_http_json_var_field_t)) != NGX_OK) return NGX_CONF_ERROR;
     ngx_http_variable_t *var = ngx_http_add_variable(cf, &name, NGX_HTTP_VAR_CHANGEABLE | NGX_HTTP_VAR_NOCACHEABLE);
     if (!var) return NGX_CONF_ERROR;
-    var->get_handler = ngx_http_json_var_variable;
+    var->get_handler = ngx_json_var_http_handler;
     var->data = (uintptr_t)ctx;
     ngx_conf_t save = *cf;
-    ngx_conf_json_var_ctx_t conf_ctx = {ctx, &save};
+    ngx_json_var_conf_ctx_t conf_ctx = {ctx, &save};
     cf->ctx = &conf_ctx;
-    cf->handler = ngx_http_json_var;
+    cf->handler = ngx_json_var_conf_handler;
     char *rv = ngx_conf_parse(cf, NULL);
     *cf = save;
     if (rv != NGX_CONF_OK) return rv;
@@ -445,7 +445,7 @@ static char *ngx_conf_json_var(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
 static ngx_command_t ngx_http_json_var_commands[] = {
   { ngx_string("json_var"),
     NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_BLOCK|NGX_CONF_TAKE1,
-    ngx_conf_json_var,
+    ngx_json_var_conf,
     0,
     0,
     NULL },
