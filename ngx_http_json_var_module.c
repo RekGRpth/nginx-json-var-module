@@ -20,7 +20,7 @@ typedef struct {
 
 typedef struct {
     ngx_conf_t *cf;
-    ngx_array_t *ctx; // of ngx_http_json_var_field_t
+    ngx_array_t *fields; // of ngx_http_json_var_field_t
 } ngx_http_json_var_ctx_t;
 
 static ngx_int_t ngx_http_json_var_headers(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
@@ -396,7 +396,7 @@ static ngx_int_t ngx_http_json_var_http_handler(ngx_http_request_t *r, ngx_http_
 
 static char *ngx_http_json_var_conf_handler(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
     ngx_http_json_var_ctx_t *ctx = cf->ctx;
-    ngx_http_json_var_field_t *item = ngx_array_push(ctx->ctx);
+    ngx_http_json_var_field_t *item = ngx_array_push(ctx->fields);
     if (!item) return NGX_CONF_ERROR;
     ngx_str_t *value = cf->args->elts;
     ngx_http_compile_complex_value_t ccv = {ctx->cf, &value[1], &item->cv, 0, 0, 0};
