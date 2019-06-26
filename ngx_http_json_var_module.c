@@ -127,10 +127,7 @@ static ngx_int_t ngx_http_json_var_headers(ngx_http_request_t *r, ngx_http_varia
     v->no_cacheable = 0;
     v->not_found = 0;
     v->len = p - v->data;
-    if (v->len >= size) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_json_var_headers: result length %uD exceeded allocated length %uz", (uint32_t)v->len, size);
-        return NGX_ERROR;
-    }
+    if (v->len >= size) { ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_json_var_headers: result length %uD exceeded allocated length %uz", (uint32_t)v->len, size); return NGX_ERROR; }
     return NGX_OK;
 }
 
@@ -171,9 +168,7 @@ static u_char *ngx_http_json_var_cookies_data(u_char *p, u_char *start, u_char *
             }
             *p++ = '"';
             start++;
-            if (*(name + (*name == ',' ? 1 : 0)) == '"' && *(name + (*name == ',' ? 2 : 1)) == '"') {
-                p = name;
-            }
+            if (*(name + (*name == ',' ? 1 : 0)) == '"' && *(name + (*name == ',' ? 2 : 1)) == '"') p = name;
         }
     }
     return p;
@@ -194,10 +189,7 @@ static ngx_int_t ngx_http_json_var_cookies(ngx_http_request_t *r, ngx_http_varia
     v->no_cacheable = 0;
     v->not_found = 0;
     v->len = p - v->data;
-    if (v->len >= size) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_json_var_cookies: result length %uD exceeded allocated length %uz", (uint32_t)v->len, size);
-        return NGX_ERROR;
-    }
+    if (v->len >= size) { ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_json_var_cookies: result length %uD exceeded allocated length %uz", (uint32_t)v->len, size); return NGX_ERROR; }
     return NGX_OK;
 }
 
@@ -286,10 +278,7 @@ static ngx_int_t ngx_http_json_var_get_vars(ngx_http_request_t *r, ngx_http_vari
     v->no_cacheable = 0;
     v->not_found = 0;
     v->len = p - v->data;
-    if (v->len >= size) {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_json_var_get_vars: result length %uD exceeded allocated length %uz", (uint32_t)v->len, size);
-        return NGX_ERROR;
-    }
+    if (v->len >= size) { ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "ngx_http_json_var_get_vars: result length %uD exceeded allocated length %uz", (uint32_t)v->len, size); return NGX_ERROR; }
     return NGX_OK;
 }
 
@@ -429,10 +418,7 @@ static ngx_int_t ngx_http_json_var_add_variables(ngx_conf_t *cf) {
 static char *ngx_http_json_var_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
     ngx_str_t *value = cf->args->elts;
     ngx_str_t name = value[1];
-    if (name.data[0] != '$') {
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "invalid variable name \"%V\"", &name);
-        return NGX_CONF_ERROR;
-    }
+    if (name.data[0] != '$') { ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "invalid variable name \"%V\"", &name); return NGX_CONF_ERROR; }
     name.len--;
     name.data++;
     ngx_http_json_var_ctx_t *ctx = ngx_pcalloc(cf->pool, sizeof(*ctx));
@@ -450,10 +436,7 @@ static char *ngx_http_json_var_conf(ngx_conf_t *cf, ngx_command_t *cmd, void *co
     char *rv = ngx_conf_parse(cf, NULL);
     *cf = save;
     if (rv != NGX_CONF_OK) return rv;
-    if (ctx->fields.nelts <= 0) {
-        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "no fields defined in \"json_var\" block");
-        return NGX_CONF_ERROR;
-    }
+    if (ctx->fields.nelts <= 0) { ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "no fields defined in \"json_var\" block"); return NGX_CONF_ERROR; }
     ctx->base_json_size = sizeof("{}");
     ngx_http_json_var_field_t *fields = ctx->fields.elts;
     for (ngx_uint_t i = 0; i < ctx->fields.nelts; i++) ctx->base_json_size += sizeof("\"\":\"\",") + fields[i].name.len;
